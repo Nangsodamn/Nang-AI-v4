@@ -6,15 +6,15 @@ require('dotenv').config();
 const app = express();
 app.use(express.json());
 
-const { PAGE_ACCESS_TOKEN, VERIFY_TOKEN, GROQ_API_KEY } = process.env;
+const { PAGE_ACCESS_TOKEN, VERIFY_TOKEN } = process.env;
 
 // Simple in-memory conversation store
 const conversations = new Map();
 
 // Health check
 app.get('/', (req, res) => {
-  res.json({ 
-    status: '🤖 Mobile Bot Running', 
+  res.json({  
+    status: '🤖 Mobile Bot Running',  
     platform: 'Android/Termux',
     uptime: process.uptime()
   });
@@ -44,21 +44,24 @@ app.post('/webhook', async (req, res) => {
   for (const entry of body.entry) {
     for (const event of entry.messaging) {
 
-  // 👋 WELCOME MESSAGE
-  if (event.postback && event.postback.payload === "GET_STARTED") {
-    await sendText(event.sender.id, "👋 Welcome to Nang AI Bot!\n\nType 'help' to see commands.");
-    continue;
-  }
+      // 👋 WELCOME MESSAGE
+      if (event.postback && event.postback.payload === "GET_STARTED") {
+        await sendText(event.sender.id, "👋 Welcome to Nang AI Bot!\n\nType 'help' to see commands.");
+        continue;
+      }
+
       if (event.message?.text) {
-        handleMessage(event.sender.id, event.message.text);
+        await handleMessage(event.sender.id, event.message.text);
       }
     }
   }
 });
 
-  // 👀 SHOW TYPING
+// 👀 HANDLE MESSAGE
 async function handleMessage(senderId, text) {
   await sendAPI(senderId, { sender_action: "typing_on" });
+
+  const msg = text.toLowerCase().trim(); // ✅ FIXED (was missing)
 
   // 📖 HELP COMMAND
   if (msg === "help") {
@@ -106,6 +109,7 @@ Type anything to chat`
   console.log(`📤 Reply sent`);
 }
 
+// 🤖 AI REQUEST
 async function getAIReply(history) {
   const keys = [
     process.env.GROQ_API_KEY_1,
@@ -146,15 +150,15 @@ async function getAIReply(history) {
 
   return "⚠️ Nang AI Have a problem, comeback later.";
 }
-  }
-}
 
+// 📤 SEND TEXT
 async function sendText(recipientId, text) {
   return sendAPI(recipientId, {
     message: { text: text.substring(0, 2000) }
   });
 }
 
+// 📡 SEND API
 async function sendAPI(recipientId, payload) {
   try {
     await axios.post(
@@ -169,14 +173,8 @@ async function sendAPI(recipientId, payload) {
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`
-  📱 Mobile Bot Running on Android!
-  
-  Local: http://localhost:${PORT}
-  Network: http://YOUR_PHONE_IP:${PORT}
-  
-  To expose online:
-  1. Install ngrok: npm install -g ngrok
-  2. Run: ngrok http ${PORT}
-  3. Copy HTTPS URL to Facebook Developer Console
-    `);
+📱 Mobile Bot Running!
+
+Local: http://localhost:${PORT}
+`);
 });

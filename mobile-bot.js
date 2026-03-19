@@ -111,43 +111,41 @@ async function getAIReply(history) {
     process.env.GROQ_API_KEY_1,
     process.env.GROQ_API_KEY_2,
     process.env.GROQ_API_KEY_3
-  ].filter(Boolean); // remove empty keys
+  ].filter(Boolean);
 
-for (let i = 0; i < keys.length; i++) {
-  try {
-    console.log(`🔑 Trying API Key ${i + 1}...`);
+  for (let i = 0; i < keys.length; i++) {
+    try {
+      console.log(`🔑 Trying API Key ${i + 1}...`);
 
-    const response = await axios.post(
-      "https://api.groq.com/openai/v1/chat/completions",
-      {
-        model: "llama-3.1-8b-instant",
-        messages: [
-          {
-            role: "system",
-            content: "Always reply in the same language as the most recent user message."
-          },
-          ...history
-        ]
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${keys[i]}`,
-          "Content-Type": "application/json"
+      const response = await axios.post(
+        "https://api.groq.com/openai/v1/chat/completions",
+        {
+          model: "llama-3.1-8b-instant",
+          messages: [
+            {
+              role: "system",
+              content: "Always reply in the same language as the user."
+            },
+            ...history
+          ]
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${keys[i]}`,
+            "Content-Type": "application/json"
+          }
         }
-      }
-    );
+      );
 
-    // ✅ SUCCESS → STOP LOOP
-    return response.data.choices[0].message.content;
+      return response.data.choices[0].message.content;
 
-  } catch (err) {
-    // ❌ FAIL → TRY NEXT KEY
-    console.log(`❌ Key ${i + 1} failed`);
-
-    // If last key → throw error
-    if (i === keys.length - 1) {
-      throw new Error("Nang AI Have temporary problem, comeback later.");
+    } catch (err) {
+      console.log("❌ Key failed, trying next...");
     }
+  }
+
+  return "⚠️ Nang AI Have a problem, comeback later.";
+}
   }
 }
 

@@ -1,4 +1,3 @@
-// Lightweight Messenger Bot for Mobile/Termux
 const express = require('express');
 const axios = require('axios');
 require('dotenv').config();
@@ -8,45 +7,50 @@ app.use(express.json());
 
 const { PAGE_ACCESS_TOKEN, VERIFY_TOKEN } = process.env;
 
-// Simple in-memory conversation store
+// Memory
 const conversations = new Map();
 
 // Health check
 app.get('/', (req, res) => {
-  res.json({  
-    status: '🤖 Mobile Bot Running',  
-    platform: 'Android/Termux',
+  res.json({
+    status: '🤖 Nang AI Running',
     uptime: process.uptime()
   });
 });
 
-// Facebook verification
+// VERIFY
 app.get('/webhook', (req, res) => {
   const mode = req.query['hub.mode'];
   const token = req.query['hub.verify_token'];
   const challenge = req.query['hub.challenge'];
-  
-  if (mode && mode === "subscribe" && token === VERIFY_TOKEN) {
-    console.log('✅ Verified');
-    res.status(200).send(challenge);
-  } else {
-    res.sendStatus(403);
+
+  if (mode === "subscribe" && token === VERIFY_TOKEN) {
+    console.log("✅ Verified");
+    return res.status(200).send(challenge);
   }
+  res.sendStatus(403);
 });
 
-// Receive messages
+// RECEIVE
 app.post('/webhook', async (req, res) => {
-  res.status(200).send('OK');
-  
+  res.sendStatus(200);
+
   const body = req.body;
   if (body.object !== 'page') return;
 
   for (const entry of body.entry) {
     for (const event of entry.messaging) {
 
-      // 👋 WELCOME MESSAGE
-      if (event.postback && event.postback.payload === "GET_STARTED") {
-        await sendText(event.sender.id, "👋 Welcome to Nang AI Bot!\n\nType 'help' to see commands.");
+      // 👋 WELCOME
+      if (event.postback?.payload === "GET_STARTED") {
+        await sendText(event.sender.id,
+`👋 Welcome to Nang AI Bot!
+
+Type:
+help - commands
+menu - options
+ai <question> - ask AI`
+        );
         continue;
       }
 
@@ -57,13 +61,13 @@ app.post('/webhook', async (req, res) => {
   }
 });
 
-// 👀 HANDLE MESSAGE
+// HANDLE MESSAGE
 async function handleMessage(senderId, text) {
   await sendAPI(senderId, { sender_action: "typing_on" });
 
-  const msg = text.toLowerCase().trim(); // ✅ FIXED (was missing)
+  const msg = text.toLowerCase().trim();
 
-  // 📖 HELP COMMAND
+  // HELP
   if (msg === "help") {
     return sendText(senderId,
 `📖 Commands:
@@ -77,7 +81,7 @@ ai what is earth?`
     );
   }
 
-  // 📌 MENU COMMAND
+  // MENU
   if (msg === "menu") {
     return sendText(senderId,
 `📌 Menu:
@@ -89,27 +93,26 @@ Type anything to chat`
     );
   }
 
-  // 🤖 AI COMMAND
+  // AI COMMAND
   if (msg.startsWith("ai ")) {
     const question = text.slice(3);
-    const reply = await getAIReply([{ role: 'user', content: question }]);
+    const reply = await getAIReply([{ role: "user", content: question }]);
     return sendText(senderId, reply);
   }
 
-  // 💬 DEFAULT (AI CHAT WITH MEMORY)
+  // DEFAULT CHAT (MEMORY)
   const history = conversations.get(senderId) || [];
-  history.push({ role: 'user', content: text });
+  history.push({ role: "user", content: text });
 
   const reply = await getAIReply(history);
-  history.push({ role: 'assistant', content: reply });
+  history.push({ role: "assistant", content: reply });
 
   conversations.set(senderId, history.slice(-10));
 
   await sendText(senderId, reply);
-  console.log(`📤 Reply sent`);
 }
 
-// 🤖 AI REQUEST
+// AI FUNCTION
 async function getAIReply(history) {
   const keys = [
     process.env.GROQ_API_KEY_1,
@@ -119,16 +122,16 @@ async function getAIReply(history) {
 
   for (let i = 0; i < keys.length; i++) {
     try {
-      console.log(`🔑 Trying API Key ${i + 1}...`);
+      console.log("🔑 Using key " + (i + 1));
 
-      const response = await axios.post(
+      const res = await axios.post(
         "https://api.groq.com/openai/v1/chat/completions",
         {
           model: "llama-3.1-8b-instant",
           messages: [
             {
               role: "system",
-              content: "Always reply in the same language as the user."
+              content: "Reply same language as user."
             },
             ...history
           ]
@@ -141,40 +144,41 @@ async function getAIReply(history) {
         }
       );
 
-      return response.data.choices[0].message.content;
+      return res.data.choices[0].message.content;
 
     } catch (err) {
-      console.log("❌ Key failed, trying next...");
+      console.log("❌ Key failed");
     }
   }
 
   return "⚠️ Nang AI Have a problem, comeback later.";
 }
 
-// 📤 SEND TEXT
-async function sendText(recipientId, text) {
-  return sendAPI(recipientId, {
+// SEND TEXT
+async function sendText(id, text) {
+  return sendAPI(id, {
     message: { text: text.substring(0, 2000) }
   });
 }
 
-// 📡 SEND API
-async function sendAPI(recipientId, payload) {
+// SEND API
+async function sendAPI(id, payload) {
   try {
     await axios.post(
       `https://graph.facebook.com/v18.0/me/messages?access_token=${PAGE_ACCESS_TOKEN}`,
-      { recipient: { id: recipientId }, ...payload }
+      {
+        recipient: { id },
+        ...payload
+      }
     );
   } catch (err) {
-    console.error('Send failed:', err.response?.data?.error?.message || err.message);
+    console.log("Send error:", err.response?.data || err.message);
   }
 }
 
+// START SERVER (IMPORTANT — DO NOT DELETE)
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`
-📱 Mobile Bot Running!
 
-Local: http://localhost:${PORT}
-`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log("🚀 Nang AI Bot Running on port " + PORT);
 });

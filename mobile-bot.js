@@ -57,6 +57,7 @@ app.post('/webhook', async (req, res) => {
 });
 
   // 👀 SHOW TYPING
+async function handleMessage(senderId, text) {
   await sendAPI(senderId, { sender_action: "typing_on" });
 
   // 📖 HELP COMMAND
